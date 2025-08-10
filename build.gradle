@@ -1,0 +1,56 @@
+plugins {
+    id 'java'
+}
+
+group = 'ind.wang'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    maven {
+        url "https://maven.aliyun.com/repository/public"
+    }
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.javassist:javassist:3.28.0-GA'
+    testImplementation platform('org.junit:junit-bom:5.9.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+test {
+    useJUnitPlatform()
+    jvmArgs '--add-opens', 'java.base/java.util.concurrent=ALL-UNNAMED'
+    jvmArgs '--add-opens', 'java.base/java.lang=ALL-UNNAMED'
+    jvmArgs '--add-opens', 'java.base/java.util=ALL-UNNAMED'
+
+    // 添加Java Agent
+    doFirst {
+        def buildDir = rootProject.layout.buildDirectory.get().asFile
+        def agentJar = file(buildDir.absolutePath + "/libs/more-and-merrier-1.0-SNAPSHOT.jar")
+        if (agentJar.exists()) {
+            jvmArgs "-javaagent:$agentJar"
+        }
+    }
+}
+
+// 创建一个包含Agent的JAR
+jar {
+    manifest {
+        attributes(
+                'Premain-Class': 'ind.wang.ThreadPoolAgent',
+                'Can-Retransform-Classes': 'true',
+                'Can-Redefine-Classes': 'true'
+        )
+    }
+
+    // 包含所有依赖
+    from {
+        configurations.runtimeClasspath.findAll { it.name.endsWith('jar') }.collect { zipTree(it) }
+    }
+}
+
+// 确保build任务依赖jar任务
+build {
+    dependsOn jar
+}
