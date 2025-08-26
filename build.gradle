@@ -14,6 +14,7 @@ repositories {
 
 dependencies {
     implementation 'org.javassist:javassist:3.28.0-GA'
+    implementation("org.apache.commons:commons-lang3:3.18.0")
     testImplementation platform('org.junit:junit-bom:5.9.2')
     testImplementation 'org.junit.jupiter:junit-jupiter'
 }
