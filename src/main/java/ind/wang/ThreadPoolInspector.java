@@ -2,6 +2,8 @@ package ind.wang;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -17,11 +19,15 @@ public class ThreadPoolInspector {
     public static final int TERMINATED =  3 << COUNT_BITS;
     private static final MethodHandles.Lookup LOOKUP;
     private static final VarHandle CTL_HANDLE;
+    private static final VarHandle WORKERS_HANDLE;
+    public static final Class<?> WORKER_CLASS = Arrays.stream(ThreadPoolExecutor.class.getDeclaredClasses())
+            .filter(klass -> klass.getName().contains("Worker")).findFirst().get();
 
     static {
         try {
             LOOKUP = MethodHandles.privateLookupIn(ThreadPoolExecutor.class, MethodHandles.lookup());
             CTL_HANDLE = LOOKUP.findVarHandle(ThreadPoolExecutor.class, "ctl", AtomicInteger.class);
+            WORKERS_HANDLE = LOOKUP.findVarHandle(ThreadPoolExecutor.class, "workers", HashSet.class);
         } catch (NoSuchFieldException | IllegalAccessException e) {
             throw new RuntimeException(e);
         }
@@ -42,5 +48,9 @@ public class ThreadPoolInspector {
     public static int getState(ThreadPoolExecutor executor) {
         int ctl = getCtl(executor);
         return ctl & (~COUNT_MASK);
+    }
+
+    public static HashSet getWorkers(ThreadPoolExecutor executor) {
+        return (HashSet) WORKERS_HANDLE.get(executor);
     }
 }
