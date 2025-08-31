@@ -5,6 +5,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashSet;
 import java.util.concurrent.*;
 
 import static ind.wang.ThreadPoolInspector.RUNNING;
@@ -77,9 +78,10 @@ class ThreadPoolExecutorTest {
                 throw new RuntimeException(e);
             }
         });
-        Assertions.assertEquals(1, ThreadPoolInspector.getWorkers(executorService).size());
+        HashSet workers = ThreadPoolInspector.getWorkers(executorService);
+        Assertions.assertEquals(1, workers.size());
+        Assertions.assertEquals(1, ThreadPoolInspector.getWorkerState(workers.stream().findAny().get()));
     }
-
 
 
     Pair<ThreadPoolExecutor, CountDownLatch> setUpWithEverRunningThread() {

@@ -2,10 +2,12 @@ package ind.wang;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
+import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.AbstractQueuedSynchronizer;
 
 public class ThreadPoolInspector {
     private static final int COUNT_BITS = Integer.SIZE - 3;
@@ -22,6 +24,17 @@ public class ThreadPoolInspector {
     private static final VarHandle WORKERS_HANDLE;
     public static final Class<?> WORKER_CLASS = Arrays.stream(ThreadPoolExecutor.class.getDeclaredClasses())
             .filter(klass -> klass.getName().contains("Worker")).findFirst().get();
+
+    private static final Field stateField;
+
+    static {
+        try {
+            stateField = AbstractQueuedSynchronizer.class.getDeclaredField("state");
+            stateField.setAccessible(true); // 绕过访问检查
+        } catch (NoSuchFieldException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     static {
         try {
@@ -52,5 +65,17 @@ public class ThreadPoolInspector {
 
     public static HashSet getWorkers(ThreadPoolExecutor executor) {
         return (HashSet) WORKERS_HANDLE.get(executor);
+    }
+
+    public static int getWorkerState(Object worker) {
+        if (!WORKER_CLASS.isInstance(worker)) {
+            throw new IllegalArgumentException();
+        }
+
+        try {
+            return (int) stateField.get(worker);
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
