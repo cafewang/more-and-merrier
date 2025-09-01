@@ -1,69 +1,71 @@
 package ind.wang;
 
 import javassist.*;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
+import java.util.Map;
+import java.util.Set;
 
 public class ThreadPoolTransformer implements ClassFileTransformer {
+    private static final Map<String, Set<String>> KLASS_TO_METHODS = Map.of(
+            "java.util.concurrent.ThreadPoolExecutor", Set.of("addWorker"),
+           "java.util.concurrent.ThreadPoolExecutor$Worker", Set.of("run")
+    );
+
     @Override
     public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined,
                             ProtectionDomain protectionDomain, byte[] classfileBuffer) {
+        String klassName = className.replaceAll("/", ".");
         // 检查是否为ThreadPoolExecutor类
-        if ("java/util/concurrent/ThreadPoolExecutor".equals(className)) {
-            System.out.println("ThreadPoolTransformer: Transforming ThreadPoolExecutor");
+        if (KLASS_TO_METHODS.containsKey(klassName)) {
             try {
                 // 使用Javassist加载类
                 ClassPool classPool = ClassPool.getDefault();
-                classPool.insertClassPath(new ByteArrayClassPath("java.util.concurrent.ThreadPoolExecutor", classfileBuffer));
+                classPool.insertClassPath(new ByteArrayClassPath(klassName, classfileBuffer));
 
-                CtClass ctClass = classPool.get("java.util.concurrent.ThreadPoolExecutor");
+                CtClass ctClass = classPool.get(klassName);
 
-                // 获取addWorker方法
+                // 获取目标方法
                 CtMethod[] methods = ctClass.getDeclaredMethods();
-                CtMethod addWorkerMethod = null;
-
+                boolean modified = false;
                 // 查找addWorker方法
                 for (CtMethod method : methods) {
-                    if ("addWorker".equals(method.getName())) {
-                        addWorkerMethod = method;
-                        break;
+                    if (!KLASS_TO_METHODS.get(klassName).contains(method.getName())) {
+                        continue;
                     }
-                }
-
-                if (addWorkerMethod != null) {
-                    System.out.println("ThreadPoolTransformer: Found addWorker method");
+                    modified = true;
                     // Intercept the return value
-                    addWorkerMethod.addLocalVariable("result", classPool.get("java.lang.Object"));
-                    addWorkerMethod.insertAfter("""
-                            { result = Boolean.valueOf($_); System.out.println("Return value: " + result);\
+                    if (method.getReturnType() != CtClass.voidType) {
+                        method.addLocalVariable("result", classPool.get("java.lang.Object"));
+                        method.insertAfter("""
+                            {result = Boolean.valueOf($_); \
                              Class aClass = ClassLoader.getSystemClassLoader().loadClass("ind.wang.InvocationRecorder");
                              try {
-                                 aClass.getDeclaredMethod("record", new Class[]{java.lang.Object[].class, java.lang.Object.class, java.lang.Throwable.class})\
-                                   .invoke(null, new Object[]{$args, result, null});
+                                 aClass.getDeclaredMethod("record", new Class[]{java.lang.String.class, java.lang.Object[].class, java.lang.Object.class, java.lang.Throwable.class})\
+                                   .invoke(null, new Object[]{"%s", $args, result, null});
                              } catch (Exception e) {
                                  e.printStackTrace();
-                             } }""");
+                             } }""".formatted(method.getName()));
+                    }
                     // Handle exceptions
-                    addWorkerMethod.addCatch("""
-                            { System.out.println("Exception caught: " + $e); \
-                             Class aClass = ClassLoader.getSystemClassLoader().loadClass("ind.wang.InvocationRecorder"); \
+                    method.addCatch("""
+                            { Class aClass = ClassLoader.getSystemClassLoader().loadClass("ind.wang.InvocationRecorder"); \
                              try {
-                                 aClass.getDeclaredMethod("record", new Class[]{java.lang.Object[].class, java.lang.Object.class, java.lang.Throwable.class})\
-                                   .invoke(null, new Object[]{$args, null, $e});
+                                 aClass.getDeclaredMethod("record", new Class[]{java.lang.String.class, java.lang.Object[].class, java.lang.Object.class, java.lang.Throwable.class})\
+                                   .invoke(null, new Object[]{"%s", $args, null, $e});
                              } catch (Exception e) {
                                  e.printStackTrace();
                              }\
-                             throw $e; }""", classPool.get("java.lang.Exception"));
+                             throw $e; }""".formatted(method.getName()), classPool.get("java.lang.Exception"));
+                }
 
-                    System.out.println("ThreadPoolTransformer: Added timing code to addWorker method");
-
+                if (modified) {
                     // 返回修改后的字节码
                     byte[] bytecode = ctClass.toBytecode();
                     ctClass.detach(); // 释放内存
                     return bytecode;
-                } else {
-                    System.out.println("ThreadPoolTransformer: addWorker method not found");
                 }
 
                 ctClass.detach();

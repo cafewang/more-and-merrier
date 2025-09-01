@@ -1,6 +1,5 @@
 package ind.wang;
 
-
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -11,6 +10,7 @@ import java.util.concurrent.*;
 import static ind.wang.ThreadPoolInspector.RUNNING;
 
 class ThreadPoolExecutorTest {
+    private static final String ADD_WORKER_SIGNATURE = "addWorker";
     void ignoreException(Runnable runnable) {
         try {
             runnable.run();
@@ -38,9 +38,9 @@ class ThreadPoolExecutorTest {
             executorService.submit(() -> System.out.println("task rejected"));
         } catch (Exception ignored) {
         }
-        Assertions.assertEquals(3, InvocationRecorder.getInvocations());
-        Assertions.assertEquals(false, InvocationRecorder.getReturnValue(1));
-        Assertions.assertEquals(false, InvocationRecorder.getReturnValue(2));
+        Assertions.assertEquals(3, InvocationRecorder.getInvocations(ADD_WORKER_SIGNATURE));
+        Assertions.assertEquals(false, InvocationRecorder.getReturnValue(ADD_WORKER_SIGNATURE, 1));
+        Assertions.assertEquals(false, InvocationRecorder.getReturnValue(ADD_WORKER_SIGNATURE, 2));
     }
 
     @Test
@@ -51,9 +51,9 @@ class ThreadPoolExecutorTest {
         executorService.shutdown();
         Assertions.assertEquals(ThreadPoolInspector.SHUTDOWN, ThreadPoolInspector.getState(executorService));
         ignoreException(() -> executorService.submit(() -> System.out.println("task rejected")));
-        Assertions.assertEquals(3, InvocationRecorder.getInvocations());
-        Assertions.assertEquals(false, InvocationRecorder.getReturnValue(1));
-        Assertions.assertEquals(false, InvocationRecorder.getReturnValue(2));
+        Assertions.assertEquals(3, InvocationRecorder.getInvocations(ADD_WORKER_SIGNATURE));
+        Assertions.assertEquals(false, InvocationRecorder.getReturnValue(ADD_WORKER_SIGNATURE, 1));
+        Assertions.assertEquals(false, InvocationRecorder.getReturnValue(ADD_WORKER_SIGNATURE, 2));
     }
 
     @Test
@@ -63,9 +63,9 @@ class ThreadPoolExecutorTest {
         executorService.shutdown();
         Assertions.assertEquals(ThreadPoolInspector.TERMINATED, ThreadPoolInspector.getState(executorService));
         ignoreException(() -> executorService.submit(() -> System.out.println("task rejected")));
-        Assertions.assertEquals(2, InvocationRecorder.getInvocations());
-        Assertions.assertEquals(false, InvocationRecorder.getReturnValue(0));
-        Assertions.assertEquals(false, InvocationRecorder.getReturnValue(1));
+        Assertions.assertEquals(2, InvocationRecorder.getInvocations(ADD_WORKER_SIGNATURE));
+        Assertions.assertEquals(false, InvocationRecorder.getReturnValue(ADD_WORKER_SIGNATURE, 0));
+        Assertions.assertEquals(false, InvocationRecorder.getReturnValue(ADD_WORKER_SIGNATURE, 1));
     }
 
     @Test

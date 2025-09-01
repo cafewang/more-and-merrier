@@ -1,18 +1,19 @@
 package ind.wang;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 public class InvocationRecorder {
-    private static final List<List<Object>> PARAMS = new ArrayList<>();
-    private static final List<Object> RETURN_VALUES = new ArrayList<>();
-    private static final List<Throwable> EXCEPTIONS = new ArrayList<>();
+    private static final Map<String, List<List<Object>>> PARAMS = new HashMap<>();
+    private static final Map<String, List<Object>> RETURN_VALUES = new HashMap<>();
+    private static final Map<String, List<Throwable>> EXCEPTIONS = new HashMap<>();
 
-    public static void record(Object[] params, Object returnValue, Throwable exception) {
-        PARAMS.add(Arrays.stream(params).toList());
-        RETURN_VALUES.add(returnValue);
-        EXCEPTIONS.add(exception);
+    public static void record(String methodSignature, Object[] params, Object returnValue, Throwable exception) {
+        PARAMS.putIfAbsent(methodSignature, new ArrayList<>());
+        PARAMS.get(methodSignature).add(Arrays.stream(params).toList());
+        RETURN_VALUES.putIfAbsent(methodSignature, new ArrayList<>());
+        RETURN_VALUES.get(methodSignature).add(returnValue);
+        EXCEPTIONS.putIfAbsent(methodSignature, new ArrayList<>());
+        EXCEPTIONS.get(methodSignature).add(exception);
     }
 
     public static void reset() {
@@ -21,20 +22,23 @@ public class InvocationRecorder {
         EXCEPTIONS.clear();
     }
 
-    public static int getInvocations() {
-        return PARAMS.size();
+    public static int getInvocations(String methodSignature) {
+        return PARAMS.get(methodSignature).size();
     }
 
-    public static List<Object> getParams(int i) {
-        return i < PARAMS.size() ? PARAMS.get(i) : null;
+    public static List<Object> getParams(String methodSignature, int i) {
+        List<List<Object>> list = PARAMS.getOrDefault(methodSignature, new ArrayList<>());
+        return i < list.size() ? list.get(i) : null;
     }
 
-    public static Object getReturnValue(int i) {
-        return i < RETURN_VALUES.size() ? RETURN_VALUES.get(i) : null;
+    public static Object getReturnValue(String methodSignature, int i) {
+        List<Object> list = RETURN_VALUES.getOrDefault(methodSignature, new ArrayList<>());
+        return i < list.size() ? list.get(i) : null;
     }
 
-    public static Throwable getException(int i) {
-        return i < EXCEPTIONS.size() ? EXCEPTIONS.get(i) : null;
+    public static Throwable getException(String methodSignature, int i) {
+        List<Throwable> list = EXCEPTIONS.getOrDefault(methodSignature, new ArrayList<>());
+        return i < list.size() ? list.get(i) : null;
     }
 
 }
