@@ -22,25 +22,20 @@ public class ThreadPoolInspector {
     private static final MethodHandles.Lookup LOOKUP;
     private static final VarHandle CTL_HANDLE;
     private static final VarHandle WORKERS_HANDLE;
+    private static final VarHandle WORKER_THREAD_HANDLE;
     public static final Class<?> WORKER_CLASS = Arrays.stream(ThreadPoolExecutor.class.getDeclaredClasses())
             .filter(klass -> klass.getName().contains("Worker")).findFirst().get();
 
-    private static final Field stateField;
+    private static final Field STATE_FIELD;
 
     static {
         try {
-            stateField = AbstractQueuedSynchronizer.class.getDeclaredField("state");
-            stateField.setAccessible(true); // 绕过访问检查
-        } catch (NoSuchFieldException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    static {
-        try {
+            STATE_FIELD = AbstractQueuedSynchronizer.class.getDeclaredField("state");
+            STATE_FIELD.setAccessible(true); // 绕过访问检查
             LOOKUP = MethodHandles.privateLookupIn(ThreadPoolExecutor.class, MethodHandles.lookup());
             CTL_HANDLE = LOOKUP.findVarHandle(ThreadPoolExecutor.class, "ctl", AtomicInteger.class);
             WORKERS_HANDLE = LOOKUP.findVarHandle(ThreadPoolExecutor.class, "workers", HashSet.class);
+            WORKER_THREAD_HANDLE = LOOKUP.findVarHandle(WORKER_CLASS, "thread", Thread.class);
         } catch (NoSuchFieldException | IllegalAccessException e) {
             throw new RuntimeException(e);
         }
@@ -73,9 +68,17 @@ public class ThreadPoolInspector {
         }
 
         try {
-            return (int) stateField.get(worker);
+            return (int) STATE_FIELD.get(worker);
         } catch (IllegalAccessException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static Thread getWorkerThread(Object worker) {
+        if (!WORKER_CLASS.isInstance(worker)) {
+            throw new IllegalArgumentException();
+        }
+
+        return (Thread) WORKER_THREAD_HANDLE.get(worker);
     }
 }

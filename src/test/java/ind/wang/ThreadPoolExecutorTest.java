@@ -69,7 +69,8 @@ class ThreadPoolExecutorTest {
     }
 
     @Test
-    void testGetWorkers() {
+    void testGetWorkers() throws InterruptedException {
+        InvocationRecorder.reset();
         ThreadPoolExecutor executorService = (ThreadPoolExecutor) Executors.newFixedThreadPool(2);
         executorService.submit(() -> {
             try {
@@ -80,7 +81,13 @@ class ThreadPoolExecutorTest {
         });
         HashSet workers = ThreadPoolInspector.getWorkers(executorService);
         Assertions.assertEquals(1, workers.size());
-        Assertions.assertEquals(1, ThreadPoolInspector.getWorkerState(workers.stream().findAny().get()));
+        Object worker = workers.stream().findAny().get();
+        Assertions.assertEquals(1, ThreadPoolInspector.getWorkerState(worker));
+        Thread workerThread = ThreadPoolInspector.getWorkerThread(worker);
+        executorService.close();
+        Assertions.assertTrue(workerThread.isAlive());
+        workerThread.join();
+        Assertions.assertEquals(1, InvocationRecorder.getInvocations("run"));
     }
 
 

@@ -1,7 +1,6 @@
 package ind.wang;
 
 import javassist.*;
-import org.apache.commons.lang3.tuple.Pair;
 
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
@@ -10,7 +9,7 @@ import java.util.Set;
 
 public class ThreadPoolTransformer implements ClassFileTransformer {
     private static final Map<String, Set<String>> KLASS_TO_METHODS = Map.of(
-            "java.util.concurrent.ThreadPoolExecutor", Set.of("addWorker"),
+            "java.util.concurrent.ThreadPoolExecutor", Set.of("addWorker", "processWorkerExit"),
            "java.util.concurrent.ThreadPoolExecutor$Worker", Set.of("run")
     );
 
@@ -37,18 +36,16 @@ public class ThreadPoolTransformer implements ClassFileTransformer {
                     }
                     modified = true;
                     // Intercept the return value
-                    if (method.getReturnType() != CtClass.voidType) {
-                        method.addLocalVariable("result", classPool.get("java.lang.Object"));
-                        method.insertAfter("""
-                            {result = Boolean.valueOf($_); \
-                             Class aClass = ClassLoader.getSystemClassLoader().loadClass("ind.wang.InvocationRecorder");
-                             try {
-                                 aClass.getDeclaredMethod("record", new Class[]{java.lang.String.class, java.lang.Object[].class, java.lang.Object.class, java.lang.Throwable.class})\
-                                   .invoke(null, new Object[]{"%s", $args, result, null});
-                             } catch (Exception e) {
-                                 e.printStackTrace();
-                             } }""".formatted(method.getName()));
-                    }
+                    method.addLocalVariable("result", classPool.get("java.lang.Object"));
+                    method.insertAfter("""
+                        {result = ($w)$_; \
+                         Class aClass = ClassLoader.getSystemClassLoader().loadClass("ind.wang.InvocationRecorder");
+                         try {
+                             aClass.getDeclaredMethod("record", new Class[]{java.lang.String.class, java.lang.Object[].class, java.lang.Object.class, java.lang.Throwable.class})\
+                               .invoke(null, new Object[]{"%s", $args, result, null});
+                         } catch (Exception e) {
+                             e.printStackTrace();
+                         } }""".formatted(method.getName()));
                     // Handle exceptions
                     method.addCatch("""
                             { Class aClass = ClassLoader.getSystemClassLoader().loadClass("ind.wang.InvocationRecorder"); \
