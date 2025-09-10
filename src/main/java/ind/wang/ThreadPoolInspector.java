@@ -53,6 +53,10 @@ public class ThreadPoolInspector {
         return ctl & COUNT_MASK;
     }
 
+    public static int getQueueSize(ThreadPoolExecutor executor) {
+        return executor.getQueue().size();
+    }
+
     public static int getState(ThreadPoolExecutor executor) {
         int ctl = getCtl(executor);
         return ctl & (~COUNT_MASK);
@@ -81,4 +85,5 @@ public class ThreadPoolInspector {
 
         return (Thread) WORKER_THREAD_HANDLE.get(worker);
     }
+
 }
